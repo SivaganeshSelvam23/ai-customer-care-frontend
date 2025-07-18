@@ -57,7 +57,7 @@ export default function Layout() {
     <div className="flex min-h-screen">
       {/* Side Nav */}
       <aside className="w-64 bg-cyan-950 text-white p-4">
-        <h3 className="text-xl font-bold mb-6">Support Panel</h3>
+        <h3 className="text-xl font-bold mb-6">Support System</h3>
         <nav className="space-y-2">
           {navItems[user?.role]?.map(({ label, icon }) => (
             <button
