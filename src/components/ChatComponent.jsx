@@ -144,17 +144,17 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
         ))}
       </div>
 
-      <div className="mt-2 flex">
+      <div className="mt-5 flex">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          className="flex-1 p-2 border rounded-l"
+          className="flex-1 p-2  border rounded-l"
           placeholder="Type your message..."
           disabled={sessionEnded}
         />
         <button
           onClick={handleSend}
-          className="bg-blue-600 text-white px-4 rounded-r"
+          className="bg-blue-600 text-white px-4 ml-3 rounded-r"
           disabled={sessionEnded}
         >
           Send

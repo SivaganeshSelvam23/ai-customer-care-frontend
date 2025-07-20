@@ -11,7 +11,7 @@ import {
 } from "react-icons/fa";
 import ChatComponent from "../components/ChatComponent";
 import { getAssignedSessions, startSession } from "../services/sessionService";
-
+import AgentDashboard from "../pages/AgentDashboard";
 const navItems = {
   admin: [
     { name: "Dashboard", icon: <FaChartBar /> },
@@ -74,7 +74,7 @@ export default function Layout() {
   const renderContent = () => {
     switch (active) {
       case "Dashboard":
-        return <p>Welcome, {user.name}! This is your dashboard.</p>;
+        return <AgentDashboard user={user.name} />;
       case "Users":
         return <p>User management panel.</p>;
       case "Reports":

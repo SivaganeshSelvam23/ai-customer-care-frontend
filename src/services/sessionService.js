@@ -28,3 +28,7 @@ export const endSession = async (sessionId, customerId) => {
   );
   return res.data;
 }
+export const getAgentLogs = async (agentId) => {
+  const res = await axios.get(`http://localhost:8000/api/logs/agent/${agentId}`);
+  return res.data;
+};
