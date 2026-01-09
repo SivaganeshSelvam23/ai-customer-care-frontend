@@ -9,13 +9,13 @@ import {
 } from "../services/sessionService";
 
 const emotionMap = {
-  0: { label: "neutral", emoji: "😐" },
-  1: { label: "anger", emoji: "😠" },
-  2: { label: "disgust", emoji: "🤢" },
-  3: { label: "fear", emoji: "😨" },
-  4: { label: "joy", emoji: "😊" },
-  5: { label: "sadness", emoji: "😢" },
-  6: { label: "surprise", emoji: "😲" },
+  no_emotion: { label: "neutral", emoji: "😐" },
+  anger: { label: "anger", emoji: "😠" },
+  disgust: { label: "disgust", emoji: "🤢" },
+  fear: { label: "fear", emoji: "😨" },
+  happiness: { label: "happiness", emoji: "😊" },
+  sadness: { label: "sadness", emoji: "😢" },
+  surprise: { label: "surprise", emoji: "😲" },
 };
 
 const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
@@ -123,12 +123,12 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            className={`mb-2 ${
-              msg.sender === user.role ? "text-right" : "text-left"
-            }`}
+            className={`mb-2 ${msg.sender === user.role ? "text-right" : "text-left"
+              }`}
           >
             <div className="inline-block bg-blue-900 text-white p-3 rounded-lg max-w-md">
               <p>{msg.text}</p>
+
               {msg.emotion !== null && (
                 <div className="text-sm mt-1">
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-white">
@@ -148,10 +148,17 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();     
+              handleSend();
+            }
+          }}
           className="flex-1 p-2  border rounded-l"
           placeholder="Type your message..."
           disabled={sessionEnded}
         />
+
         <button
           onClick={handleSend}
           className="bg-blue-600 text-white px-4 ml-3 rounded-r"

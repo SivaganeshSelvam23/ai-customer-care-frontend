@@ -42,22 +42,31 @@ export default function Layout() {
   };
 
   useEffect(() => {
-    if (user?.role === "agent") {
-      const interval = setInterval(async () => {
-        try {
-          const sessions = await getAssignedSessions(user.id);
-          setNotificationCount(sessions?.length || 0);
-          setAssignedSessions(sessions || []);
-        } catch (err) {
-          console.error("Error fetching sessions", err);
-          setNotificationCount(0);
-          setAssignedSessions([]);
-        }
-      }, 3000);
+  if (user?.role !== "agent") return;
+  if (active !== "Notifications") return;
 
-      return () => clearInterval(interval);
+  let isMounted = true;
+
+  const interval = setInterval(async () => {
+    try {
+      const sessions = await getAssignedSessions(user.id);
+      if (!isMounted) return;
+
+      setNotificationCount(sessions?.length || 0);
+      setAssignedSessions(sessions || []);
+    } catch (err) {
+      console.error("Error fetching sessions", err);
+      setNotificationCount(0);
+      setAssignedSessions([]);
     }
-  }, [user]);
+  }, 3000);
+
+  return () => {
+    isMounted = false;
+    clearInterval(interval); // 🔥 stops polling when tab changes
+  };
+}, [user?.id, user?.role, active]);
+
 
   const handleStartNewChat = async () => {
     try {
