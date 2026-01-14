@@ -14,25 +14,127 @@ const emotionMap = {
   neutral: { label: "Neutral", emoji: "😐", color: "#9ca3af" },
 };
 
-/* ---------------- FAKE DATA ---------------- */
+const mockEntities = {
+  order_number: "ORD-984512",
+  product_id: "PRD-77821",
+  product_name: "Wireless Headphones",
+  quantity: 2,
+  customer_name: "Olivia Brooks",
+  email: "olivia.brooks@email.com",
+  phone: "+44 7700 900123",
+  payment_method: "Credit Card",
+  transaction_id: "TXN-8839201",
+  refund_id: "REF-11209",
+  return_reason: "Damaged item",
+  delivery_address: "221B Baker Street, London",
+  shipping_method: "Express",
+  delivery_status: "Delayed",
+  coupon_code: "NEWYEAR20",
+  account_id: "ACC-77291",
+  username: "oliviab",
+  loyalty_points: 420,
+  subscription_plan: "Gold",
+  complaint_type: "Late delivery",
+  product_category: "Electronics",
+  store_location: "London – Oxford Street",
+  date: "2026-01-12",
+  time: "11:40",
+  amount: "£129.99",
+};
 
-// Outcome (GLOBAL)
-const fakeOutcomeData = [
-  { id: "resolved", label: "Resolved", value: 60 },
-  { id: "pending", label: "Pending", value: 25 },
-  { id: "escalated", label: "Escalated", value: 15 },
-];
+/* ---------------- ENTITY LABELS ---------------- */
+const entityLabels = {
+  order_number: "Order #",
+  product_id: "Product ID",
+  product_name: "Product",
+  quantity: "Qty",
+  customer_name: "Customer",
+  email: "Email",
+  phone: "Phone",
+  payment_method: "Payment",
+  transaction_id: "Transaction",
+  refund_id: "Refund ID",
+  return_reason: "Reason",
+  delivery_status: "Delivery",
+  coupon_code: "Coupon",
+  loyalty_points: "Points",
+  subscription_plan: "Plan",
+  complaint_type: "Complaint",
+  product_category: "Category",
+  store_location: "Store",
+  amount: "Amount",
+};
+const entityStyleMap = {
+  order_number: "bg-blue-500/20 text-blue-300 border-blue-400/40",
+  product_id: "bg-green-500/20 text-green-300 border-green-400/40",
+  product_name: "bg-green-500/20 text-green-300 border-green-400/40",
+  quantity: "bg-green-500/20 text-green-300 border-green-400/40",
 
-// Emotion (SESSION)
-const fakeEmotionData = [
-  { key: "happiness", value: 7 },
-  { key: "surprise", value: 5 },
-  { key: "sadness", value: 5 },
-  { key: "fear", value: 4 },
-  { key: "disgust", value: 4 },
-  { key: "anger", value: 3 },
-  { key: "neutral", value: 1 },
-];
+  customer_name: "bg-violet-500/20 text-violet-300 border-violet-400/40",
+  email: "bg-cyan-500/20 text-cyan-300 border-cyan-400/40",
+  phone: "bg-cyan-500/20 text-cyan-300 border-cyan-400/40",
+
+  payment_method: "bg-amber-500/20 text-amber-300 border-amber-400/40",
+  transaction_id: "bg-amber-500/20 text-amber-300 border-amber-400/40",
+  refund_id: "bg-amber-500/20 text-amber-300 border-amber-400/40",
+
+  delivery_address: "bg-orange-500/20 text-orange-300 border-orange-400/40",
+  shipping_method: "bg-orange-500/20 text-orange-300 border-orange-400/40",
+  delivery_status: "bg-orange-500/20 text-orange-300 border-orange-400/40",
+
+  account_id: "bg-purple-500/20 text-purple-300 border-purple-400/40",
+  username: "bg-purple-500/20 text-purple-300 border-purple-400/40",
+  subscription_plan: "bg-purple-500/20 text-purple-300 border-purple-400/40",
+
+  amount: "bg-slate-500/20 text-slate-300 border-slate-400/40",
+  date: "bg-slate-500/20 text-slate-300 border-slate-400/40",
+  time: "bg-slate-500/20 text-slate-300 border-slate-400/40",
+};
+
+function EntityPanel({ entities }) {
+  const [expanded, setExpanded] = useState(false);
+  const entries = Object.entries(entities);
+  const visible = expanded ? entries : entries.slice(0, 5);
+  const hiddenCount = entries.length - 5;
+
+  return (
+    <div className="mt-4 p-4 rounded-2xl bg-slate-900/60 border border-white/10">
+      <p className="text-xs font-semibold text-gray-300 mb-3 flex items-center gap-2">
+        🧠 Entities (NER)
+      </p>
+
+      <div
+        className={`flex flex-wrap gap-2 ${
+          expanded ? "max-h-40 overflow-y-auto entity-scroll pr-2" : ""
+        }`}
+      >
+        {visible.map(([key, value]) => (
+          <span
+            key={key}
+            className={`text-xs px-3 py-1.5 rounded-full border font-medium
+              ${
+                entityStyleMap[key] ||
+                "bg-gray-500/20 text-gray-300 border-gray-400/30"
+              }
+            `}
+          >
+            <strong>{entityLabels[key] || key}:</strong>{" "}
+            <span className="opacity-90">{String(value)}</span>
+          </span>
+        ))}
+      </div>
+
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+        >
+          {expanded ? "Show less" : `+${hiddenCount} more`}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function AgentDashboard() {
   const { user } = useAuth();
@@ -144,7 +246,8 @@ export default function AgentDashboard() {
               <p className="text-sm">
                 🏷️ <strong>Intent:</strong> {log.intent_classified || "—"}
               </p>
-
+              {/* -------- ENTITY PANEL -------- */}
+              <EntityPanel entities={mockEntities} />
               <button
                 onClick={() => setSelectedLog(log)}
                 className="mt-4 px-4 py-1.5 bg-cyan-600 rounded-full text-sm hover:bg-cyan-700 transition"

@@ -12,6 +12,7 @@ import {
 import ChatComponent from "../components/ChatComponent";
 import { getAssignedSessions, startSession } from "../services/sessionService";
 import AgentDashboard from "../pages/AgentDashboard";
+import CustomerDashboard from "../pages/CustomerDashboard";
 const navItems = {
   admin: [
     { name: "Dashboard", icon: <FaChartBar /> },
@@ -42,31 +43,30 @@ export default function Layout() {
   };
 
   useEffect(() => {
-  if (user?.role !== "agent") return;
-  if (active !== "Notifications") return;
+    if (user?.role !== "agent") return;
+    if (active !== "Notifications") return;
 
-  let isMounted = true;
+    let isMounted = true;
 
-  const interval = setInterval(async () => {
-    try {
-      const sessions = await getAssignedSessions(user.id);
-      if (!isMounted) return;
+    const interval = setInterval(async () => {
+      try {
+        const sessions = await getAssignedSessions(user.id);
+        if (!isMounted) return;
 
-      setNotificationCount(sessions?.length || 0);
-      setAssignedSessions(sessions || []);
-    } catch (err) {
-      console.error("Error fetching sessions", err);
-      setNotificationCount(0);
-      setAssignedSessions([]);
-    }
-  }, 3000);
+        setNotificationCount(sessions?.length || 0);
+        setAssignedSessions(sessions || []);
+      } catch (err) {
+        console.error("Error fetching sessions", err);
+        setNotificationCount(0);
+        setAssignedSessions([]);
+      }
+    }, 3000);
 
-  return () => {
-    isMounted = false;
-    clearInterval(interval); // 🔥 stops polling when tab changes
-  };
-}, [user?.id, user?.role, active]);
-
+    return () => {
+      isMounted = false;
+      clearInterval(interval); // 🔥 stops polling when tab changes
+    };
+  }, [user?.id, user?.role, active]);
 
   const handleStartNewChat = async () => {
     try {
@@ -83,7 +83,9 @@ export default function Layout() {
   const renderContent = () => {
     switch (active) {
       case "Dashboard":
-        return <AgentDashboard user={user.name} />;
+        if (user.role === "admin") return <AdminDashboard />;
+        if (user.role === "agent") return <AgentDashboard />;
+        if (user.role === "customer") return <CustomerDashboard />;
       case "Users":
         return <p>User management panel.</p>;
       case "Reports":

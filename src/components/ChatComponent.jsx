@@ -8,6 +8,7 @@ import {
   endSession as apiEndSession,
 } from "../services/sessionService";
 
+/* ---------------- EMOTION MAP ---------------- */
 const emotionMap = {
   no_emotion: { label: "neutral", emoji: "😐" },
   anger: { label: "anger", emoji: "😠" },
@@ -18,6 +19,59 @@ const emotionMap = {
   surprise: { label: "surprise", emoji: "😲" },
 };
 
+/* ---------------- ENTITY COLOR MAP ---------------- */
+const entityColorMap = {
+  "Order Number": "bg-blue-400/30 text-blue-200",
+  "Refund Amount": "bg-green-400/30 text-green-200",
+  Amount: "bg-green-400/30 text-green-200",
+  Product: "bg-teal-400/30 text-teal-200",
+  Quantity: "bg-teal-400/30 text-teal-200",
+  Email: "bg-cyan-400/30 text-cyan-200",
+  Phone: "bg-cyan-400/30 text-cyan-200",
+  "Transaction ID": "bg-amber-400/30 text-amber-200",
+  "Refund ID": "bg-amber-400/30 text-amber-200",
+};
+
+/* ---------------- SAFE ENTITY PARSER ---------------- */
+const parseEntities = (entities) => {
+  if (!entities || entities === "no entities extracted or detected") {
+    return [];
+  }
+
+  try {
+    return JSON.parse(entities);
+  } catch (e) {
+    console.error("Failed to parse entities:", entities);
+    return [];
+  }
+};
+
+/* ---------------- ENTITY HIGHLIGHTER ---------------- */
+const highlightEntities = (text, entities) => {
+  if (!entities.length) return text;
+
+  let highlightedText = text;
+
+  entities.forEach(({ label, text: entityText }) => {
+    if (!entityText) return;
+
+    const escaped = entityText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const regex = new RegExp(`(${escaped})`, "gi");
+
+    const colorClass =
+      entityColorMap[label] || "bg-yellow-400/30 text-yellow-200";
+
+    highlightedText = highlightedText.replace(
+      regex,
+      `<span class="${colorClass} px-1 rounded font-semibold">$1</span>`
+    );
+  });
+
+  return highlightedText;
+};
+
+/* ---------------- MAIN COMPONENT ---------------- */
 const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
   const { user } = useAuth();
   const [sessionId, setSessionId] = useState(sessionIdProp || null);
@@ -26,6 +80,7 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
   const [input, setInput] = useState("");
   const [sessionEnded, setSessionEnded] = useState(false);
 
+  /* -------- LOAD SESSION -------- */
   useEffect(() => {
     const loadSession = async () => {
       try {
@@ -49,30 +104,25 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
     };
 
     loadSession();
-  }, [user, sessionIdProp]);
+  }, [user, sessionIdProp, chatWithProp]);
 
+  /* -------- POLLING -------- */
   useEffect(() => {
     const interval = setInterval(async () => {
-      if (sessionId) {
-        try {
-          const updatedMessages = await getMessages(sessionId);
-          setMessages(updatedMessages);
+      if (!sessionId) return;
 
-          if (updatedMessages.length === 0 && user.role === "agent") {
-            setSessionEnded(true);
-            setTimeout(() => {
-              if (onEnd) onEnd();
-            }, 3000);
-          }
-        } catch (err) {
-          console.error("Error polling messages:", err);
-        }
+      try {
+        const updatedMessages = await getMessages(sessionId);
+        setMessages(updatedMessages);
+      } catch (err) {
+        console.error("Polling error:", err);
       }
     }, 3000);
 
     return () => clearInterval(interval);
   }, [sessionId]);
 
+  /* -------- SEND MESSAGE -------- */
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -88,17 +138,18 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
       setMessages(updatedMessages);
       setInput("");
     } catch (err) {
-      console.error("Message send failed:", err.response?.data || err.message);
+      console.error("Send failed:", err);
     }
   };
 
+  /* -------- END CHAT -------- */
   const handleEndChat = async () => {
     try {
       await apiEndSession(sessionId, user.id);
-      alert("Chat session ended.");
+      setSessionEnded(true);
       if (onEnd) onEnd();
     } catch (err) {
-      console.error("Failed to end session:", err);
+      console.error("End session failed:", err);
     }
   };
 
@@ -113,55 +164,62 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
         </p>
       )}
 
-      {sessionEnded && user.role === "agent" && (
-        <div className="mb-4 text-yellow-600 bg-yellow-100 border border-yellow-300 px-4 py-2 rounded">
-          ⚠️ This session has ended.
-        </div>
-      )}
+      <div className="bg-white p-4 rounded shadow h-96 overflow-y-auto">
+        {messages.map((msg, idx) => {
+          const entities = parseEntities(msg.entities);
 
-      <div className="bg-white p-4 rounded shadow h-96 overflow-y-scroll">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`mb-2 ${msg.sender === user.role ? "text-right" : "text-left"
+          return (
+            <div
+              key={idx}
+              className={`mb-3 ${
+                msg.sender === user.role ? "text-right" : "text-left"
               }`}
-          >
-            <div className="inline-block bg-blue-900 text-white p-3 rounded-lg max-w-md">
-              <p>{msg.text}</p>
+            >
+              <div
+                className={`inline-block p-3 rounded-lg max-w-md text-white ${
+                  msg.sender === "agent" ? "bg-blue-900" : "bg-gray-700"
+                }`}
+              >
+                <p
+                  className="whitespace-pre-wrap break-words"
+                  dangerouslySetInnerHTML={{
+                    __html: highlightEntities(msg.text, entities),
+                  }}
+                />
 
-              {msg.emotion !== null && (
-                <div className="text-sm mt-1">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-white">
-                    {emotionMap[msg.emotion]?.emoji || "❓"}
-                    <span className="capitalize">
-                      {emotionMap[msg.emotion]?.label || "unknown"}
+                {msg.emotion && (
+                  <div className="text-xs mt-2 flex justify-end">
+                    <span className="px-2 py-0.5 rounded-full bg-black/30">
+                      {emotionMap[msg.emotion]?.emoji}{" "}
+                      {emotionMap[msg.emotion]?.label}
                     </span>
-                  </span>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="mt-5 flex">
+      {/* -------- INPUT -------- */}
+      <div className="mt-4 flex">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              e.preventDefault();     
+              e.preventDefault();
               handleSend();
             }
           }}
-          className="flex-1 p-2  border rounded-l"
+          className="flex-1 p-2 border rounded-l"
           placeholder="Type your message..."
           disabled={sessionEnded}
         />
 
         <button
           onClick={handleSend}
-          className="bg-blue-600 text-white px-4 ml-3 rounded-r"
+          className="bg-blue-600 text-white px-4 rounded-r"
           disabled={sessionEnded}
         >
           Send

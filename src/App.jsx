@@ -5,6 +5,7 @@ import AuthForm from "./components/AuthForm";
 import Layout from "./components/Layout";
 import AdminDashboard from "./pages/AdminDashboard";
 import AgentDashboard from "./pages/AgentDashboard";
+import CustomerDashboard from "./pages/CustomerDashboard";
 
 function App() {
   return (
@@ -22,7 +23,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/agent" element={<AgentDashboard />} />
-          <Route path="/customer" element={<p>Customer Dashboard</p>} />
+          <Route path="/customer" element={<CustomerDashboard />} />
         </Route>
       </Route>
 
