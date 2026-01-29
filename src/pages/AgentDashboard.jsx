@@ -14,32 +14,18 @@ const emotionMap = {
   neutral: { label: "Neutral", emoji: "😐", color: "#9ca3af" },
 };
 
-const mockEntities = {
-  order_number: "ORD-984512",
-  product_id: "PRD-77821",
-  product_name: "Wireless Headphones",
-  quantity: 2,
-  customer_name: "Olivia Brooks",
-  email: "olivia.brooks@email.com",
-  phone: "+44 7700 900123",
-  payment_method: "Credit Card",
-  transaction_id: "TXN-8839201",
-  refund_id: "REF-11209",
-  return_reason: "Damaged item",
-  delivery_address: "221B Baker Street, London",
-  shipping_method: "Express",
-  delivery_status: "Delayed",
-  coupon_code: "NEWYEAR20",
-  account_id: "ACC-77291",
-  username: "oliviab",
-  loyalty_points: 420,
-  subscription_plan: "Gold",
-  complaint_type: "Late delivery",
-  product_category: "Electronics",
-  store_location: "London – Oxford Street",
-  date: "2026-01-12",
-  time: "11:40",
-  amount: "£129.99",
+/* ---------------- ENTITY AGGREGATOR ---------------- */
+const extractEntitiesFromMessages = (messages = []) => {
+  return messages.reduce((acc, msg) => {
+    if (msg.entities && typeof msg.entities === "object") {
+      Object.entries(msg.entities).forEach(([key, value]) => {
+        if (value && !acc[key]) {
+          acc[key] = value; // keep first occurrence
+        }
+      });
+    }
+    return acc;
+  }, {});
 };
 
 /* ---------------- ENTITY LABELS ---------------- */
@@ -63,6 +49,7 @@ const entityLabels = {
   product_category: "Category",
   store_location: "Store",
   amount: "Amount",
+  refund_amount: "Refund Amount",
 };
 const entityStyleMap = {
   order_number: "bg-blue-500/20 text-blue-300 border-blue-400/40",
@@ -86,14 +73,16 @@ const entityStyleMap = {
   username: "bg-purple-500/20 text-purple-300 border-purple-400/40",
   subscription_plan: "bg-purple-500/20 text-purple-300 border-purple-400/40",
 
-  amount: "bg-slate-500/20 text-slate-300 border-slate-400/40",
+  amount: "bg-emerald-500/20 text-emerald-300 border-emerald-400/40",
+  refund_amount: "bg-rose-500/20 text-rose-300 border-rose-400/40",
   date: "bg-slate-500/20 text-slate-300 border-slate-400/40",
   time: "bg-slate-500/20 text-slate-300 border-slate-400/40",
 };
 
 function EntityPanel({ entities }) {
   const [expanded, setExpanded] = useState(false);
-  const entries = Object.entries(entities);
+
+  const entries = Object.entries(entities || {});
   const visible = expanded ? entries : entries.slice(0, 5);
   const hiddenCount = entries.length - 5;
 
@@ -103,34 +92,43 @@ function EntityPanel({ entities }) {
         🧠 Entities (NER)
       </p>
 
-      <div
-        className={`flex flex-wrap gap-2 ${
-          expanded ? "max-h-40 overflow-y-auto entity-scroll pr-2" : ""
-        }`}
-      >
-        {visible.map(([key, value]) => (
-          <span
-            key={key}
-            className={`text-xs px-3 py-1.5 rounded-full border font-medium
-              ${
-                entityStyleMap[key] ||
-                "bg-gray-500/20 text-gray-300 border-gray-400/30"
-              }
-            `}
+      {/* -------- FALLBACK UI -------- */}
+      {entries.length === 0 ? (
+        <div className="text-xs text-gray-400 italic flex items-center gap-2">
+          ⚠️ No entities detected in this session
+        </div>
+      ) : (
+        <>
+          <div
+            className={`flex flex-wrap gap-2 ${
+              expanded ? "max-h-40 overflow-y-auto entity-scroll pr-2" : ""
+            }`}
           >
-            <strong>{entityLabels[key] || key}:</strong>{" "}
-            <span className="opacity-90">{String(value)}</span>
-          </span>
-        ))}
-      </div>
+            {visible.map(([key, value]) => (
+              <span
+                key={key}
+                className={`text-xs px-3 py-1.5 rounded-full border font-medium
+                  ${
+                    entityStyleMap[key] ||
+                    "bg-gray-500/20 text-gray-300 border-gray-400/30"
+                  }
+                `}
+              >
+                <strong>{entityLabels[key] || key}:</strong>{" "}
+                <span className="opacity-90">{String(value)}</span>
+              </span>
+            ))}
+          </div>
 
-      {hiddenCount > 0 && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
-        >
-          {expanded ? "Show less" : `+${hiddenCount} more`}
-        </button>
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+            >
+              {expanded ? "Show less" : `+${hiddenCount} more`}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -247,7 +245,9 @@ export default function AgentDashboard() {
                 🏷️ <strong>Intent:</strong> {log.intent_classified || "—"}
               </p>
               {/* -------- ENTITY PANEL -------- */}
-              <EntityPanel entities={mockEntities} />
+              <EntityPanel
+                entities={extractEntitiesFromMessages(log.messages)}
+              />
               <button
                 onClick={() => setSelectedLog(log)}
                 className="mt-4 px-4 py-1.5 bg-cyan-600 rounded-full text-sm hover:bg-cyan-700 transition"
@@ -314,7 +314,7 @@ export default function AgentDashboard() {
                   scaleType: "band",
                   data: agentEmotionData.map(
                     (e) =>
-                      `${emotionMap[e.key].emoji} ${emotionMap[e.key].label}`
+                      `${emotionMap[e.key].emoji} ${emotionMap[e.key].label}`,
                   ),
                   tickLabelStyle: {
                     fill: "#e5e7eb",
@@ -338,7 +338,7 @@ export default function AgentDashboard() {
               series={agentEmotionData.map((emotion, index) => ({
                 label: emotionMap[emotion.key].label,
                 data: agentEmotionData.map((_, i) =>
-                  i === index ? emotion.value : null
+                  i === index ? emotion.value : null,
                 ),
                 color: emotionMap[emotion.key].color,
                 valueFormatter: (v) => (v ? v : ""),
@@ -376,7 +376,7 @@ export default function AgentDashboard() {
                   scaleType: "band",
                   data: customerEmotionData.map(
                     (e) =>
-                      `${emotionMap[e.key].emoji} ${emotionMap[e.key].label}`
+                      `${emotionMap[e.key].emoji} ${emotionMap[e.key].label}`,
                   ),
                   tickLabelStyle: {
                     fill: "#e5e7eb",
@@ -400,7 +400,7 @@ export default function AgentDashboard() {
               series={customerEmotionData.map((emotion, index) => ({
                 label: emotionMap[emotion.key].label,
                 data: customerEmotionData.map((_, i) =>
-                  i === index ? emotion.value : null
+                  i === index ? emotion.value : null,
                 ),
                 color: emotionMap[emotion.key].color,
                 valueFormatter: (v) => (v ? v : ""),
@@ -437,7 +437,8 @@ export default function AgentDashboard() {
           onClick={() => setSelectedLog(null)}
         >
           <div
-            className="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative text-white"
+            className="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] 
+             overflow-y-auto chat-scroll shadow-2xl relative text-white"
             onClick={(e) => e.stopPropagation()}
           >
             <button

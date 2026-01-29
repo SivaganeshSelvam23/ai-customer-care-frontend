@@ -19,61 +19,9 @@ const emotionMap = {
   surprise: { label: "surprise", emoji: "😲" },
 };
 
-/* ---------------- ENTITY COLOR MAP ---------------- */
-const entityColorMap = {
-  "Order Number": "bg-blue-400/30 text-blue-200",
-  "Refund Amount": "bg-green-400/30 text-green-200",
-  Amount: "bg-green-400/30 text-green-200",
-  Product: "bg-teal-400/30 text-teal-200",
-  Quantity: "bg-teal-400/30 text-teal-200",
-  Email: "bg-cyan-400/30 text-cyan-200",
-  Phone: "bg-cyan-400/30 text-cyan-200",
-  "Transaction ID": "bg-amber-400/30 text-amber-200",
-  "Refund ID": "bg-amber-400/30 text-amber-200",
-};
-
-/* ---------------- SAFE ENTITY PARSER ---------------- */
-const parseEntities = (entities) => {
-  if (!entities || entities === "no entities extracted or detected") {
-    return [];
-  }
-
-  try {
-    return JSON.parse(entities);
-  } catch (e) {
-    console.error("Failed to parse entities:", entities);
-    return [];
-  }
-};
-
-/* ---------------- ENTITY HIGHLIGHTER ---------------- */
-const highlightEntities = (text, entities) => {
-  if (!entities.length) return text;
-
-  let highlightedText = text;
-
-  entities.forEach(({ label, text: entityText }) => {
-    if (!entityText) return;
-
-    const escaped = entityText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-    const regex = new RegExp(`(${escaped})`, "gi");
-
-    const colorClass =
-      entityColorMap[label] || "bg-yellow-400/30 text-yellow-200";
-
-    highlightedText = highlightedText.replace(
-      regex,
-      `<span class="${colorClass} px-1 rounded font-semibold">$1</span>`
-    );
-  });
-
-  return highlightedText;
-};
-
-/* ---------------- MAIN COMPONENT ---------------- */
 const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
   const { user } = useAuth();
+
   const [sessionId, setSessionId] = useState(sessionIdProp || null);
   const [chatWith, setChatWith] = useState(chatWithProp || "");
   const [messages, setMessages] = useState([]);
@@ -88,21 +36,18 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
           const session = await startSession(user.id);
           setSessionId(session.session_id);
           setChatWith(session.agent_name);
+          setMessages(await getMessages(session.session_id));
+        }
 
-          const initialMessages = await getMessages(session.session_id);
-          setMessages(initialMessages);
-        } else if (user?.role === "agent" && sessionIdProp) {
+        if (user?.role === "agent" && sessionIdProp) {
           setSessionId(sessionIdProp);
           setChatWith(chatWithProp);
-
-          const initialMessages = await getMessages(sessionIdProp);
-          setMessages(initialMessages);
+          setMessages(await getMessages(sessionIdProp));
         }
       } catch (err) {
         console.error("Failed to load session:", err);
       }
     };
-
     loadSession();
   }, [user, sessionIdProp, chatWithProp]);
 
@@ -110,13 +55,7 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
   useEffect(() => {
     const interval = setInterval(async () => {
       if (!sessionId) return;
-
-      try {
-        const updatedMessages = await getMessages(sessionId);
-        setMessages(updatedMessages);
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
+      setMessages(await getMessages(sessionId));
     }, 3000);
 
     return () => clearInterval(interval);
@@ -126,110 +65,136 @@ const ChatComponent = ({ sessionIdProp, chatWithProp, onEnd }) => {
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    try {
-      await sendMessage({
-        session_id: sessionId,
-        sender_id: user.id,
-        sender: user.role,
-        text: input.trim(),
-      });
+    await sendMessage({
+      session_id: sessionId,
+      sender_id: user.id,
+      sender: user.role,
+      text: input.trim(),
+    });
 
-      const updatedMessages = await getMessages(sessionId);
-      setMessages(updatedMessages);
-      setInput("");
-    } catch (err) {
-      console.error("Send failed:", err);
-    }
+    setMessages(await getMessages(sessionId));
+    setInput("");
   };
 
   /* -------- END CHAT -------- */
   const handleEndChat = async () => {
-    try {
-      await apiEndSession(sessionId, user.id);
-      setSessionEnded(true);
-      if (onEnd) onEnd();
-    } catch (err) {
-      console.error("End session failed:", err);
-    }
+    await apiEndSession(sessionId, user.id);
+    setSessionEnded(true);
+    onEnd && onEnd();
   };
 
+  /* -------- ALL KB ANSWERS -------- */
+  const kbMessages = messages.filter(
+    (m) =>
+      m.sender === "customer" &&
+      m.kb_answer &&
+      typeof m.kb_answer === "object" &&
+      m.kb_answer.answer,
+  );
+
   return (
-    <div className="mt-4">
+    <div className="mt-4 flex flex-col gap-4">
+      {/* CHAT HEADER */}
       {chatWith && (
-        <p className="text-sm mb-2 text-gray-600">
-          {user.role === "customer"
-            ? "👨‍💼 You are chatting with"
-            : "👤 You are chatting with"}{" "}
-          <strong>{chatWith}</strong>
+        <p className="text-sm text-gray-400">
+          {user.role === "customer" ? "👨‍💼 Chatting with" : "👤 Chatting with"}{" "}
+          <strong className="text-gray-200">{chatWith}</strong>
         </p>
       )}
 
-      <div className="bg-white p-4 rounded shadow h-96 overflow-y-auto">
-        {messages.map((msg, idx) => {
-          const entities = parseEntities(msg.entities);
-
-          return (
+      {/* CHAT WINDOW */}
+      <div className="bg-zinc-900 p-4 rounded shadow h-80 overflow-y-auto scroll-dark">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`mb-3 ${
+              msg.sender === user.role ? "text-right" : "text-left"
+            }`}
+          >
             <div
-              key={idx}
-              className={`mb-3 ${
-                msg.sender === user.role ? "text-right" : "text-left"
+              className={`inline-block p-3 rounded-lg max-w-md text-white ${
+                msg.sender === "agent" ? "bg-blue-900" : "bg-zinc-700"
               }`}
             >
-              <div
-                className={`inline-block p-3 rounded-lg max-w-md text-white ${
-                  msg.sender === "agent" ? "bg-blue-900" : "bg-gray-700"
-                }`}
-              >
-                <p
-                  className="whitespace-pre-wrap break-words"
-                  dangerouslySetInnerHTML={{
-                    __html: highlightEntities(msg.text, entities),
-                  }}
-                />
+              <p className="whitespace-pre-wrap">{msg.text}</p>
 
-                {msg.emotion && (
-                  <div className="text-xs mt-2 flex justify-end">
-                    <span className="px-2 py-0.5 rounded-full bg-black/30">
-                      {emotionMap[msg.emotion]?.emoji}{" "}
-                      {emotionMap[msg.emotion]?.label}
-                    </span>
-                  </div>
-                )}
-              </div>
+              {msg.emotion && (
+                <div className="text-xs mt-2 flex justify-end opacity-80">
+                  {emotionMap[msg.emotion]?.emoji}{" "}
+                  {emotionMap[msg.emotion]?.label}
+                </div>
+              )}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
-      {/* -------- INPUT -------- */}
-      <div className="mt-4 flex">
+      {/* INPUT */}
+      <div className="flex">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          className="flex-1 p-2 border rounded-l"
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          className="flex-1 p-2 bg-zinc-800 border border-zinc-700 text-white rounded-l"
           placeholder="Type your message..."
           disabled={sessionEnded}
         />
-
         <button
           onClick={handleSend}
-          className="bg-blue-600 text-white px-4 rounded-r"
-          disabled={sessionEnded}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-r"
         >
           Send
         </button>
       </div>
 
+      {/* =================================================
+          🤖 AI KNOWLEDGE INSIGHTS — DARK MODE
+      ================================================= */}
+      {user.role === "agent" && (
+        <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-4 max-h-72 overflow-y-auto scroll-dark">
+          <h3 className="text-gray-200 font-semibold mb-4 flex items-center gap-2">
+            🧠 AI Knowledge Insights
+            <span className="text-xs text-gray-400">(live)</span>
+          </h3>
+
+          {kbMessages.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              No AI insights generated yet.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {kbMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="bg-zinc-800 border-l-4 border-blue-500 rounded-md p-4 shadow"
+                >
+                  {/* Customer Quote */}
+                  <p className="text-xs text-gray-400 mb-1">
+                    Based on customer message
+                  </p>
+                  <blockquote className="italic text-sm text-gray-300 border-l border-zinc-600 pl-3 mb-3">
+                    “{msg.text}”
+                  </blockquote>
+
+                  {/* AI Guidance */}
+                  <p className="text-xs font-semibold text-blue-400 mb-1">
+                    AI Suggested Guidance
+                  </p>
+                  <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    {msg.kb_answer.answer}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* END CHAT */}
       {user.role === "customer" && !sessionEnded && (
         <button
           onClick={handleEndChat}
-          className="mt-4 bg-red-600 text-white px-4 py-1 rounded"
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded w-fit"
         >
           End Chat
         </button>

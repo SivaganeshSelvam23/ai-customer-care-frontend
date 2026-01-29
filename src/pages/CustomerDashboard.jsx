@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthProvider";
 const CustomerDashboard = () => {
   const { user } = useAuth();
   const [logs, setLogs] = useState([]);
+  const [selectedLog, setSelectedLog] = useState(null);
   const fetchedRef = useRef(false);
 
   const outcomeStyles = {
@@ -75,8 +76,68 @@ const CustomerDashboard = () => {
           <p className="text-sm">
             🏷️ <strong>Intent:</strong> {log.intent_classified || "—"}
           </p>
+          <button
+            onClick={() => setSelectedLog(log)}
+            className="mt-4 px-4 py-1.5 bg-cyan-600 rounded-full text-sm hover:bg-cyan-700 transition"
+          >
+            🗂 View Messages
+          </button>
         </div>
       ))}
+      {/* ================= CHAT MODAL ================= */}
+      {selectedLog && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+          onClick={() => setSelectedLog(null)}
+        >
+          <div
+            className="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedLog(null)}
+              className="absolute top-3 right-4 text-2xl text-gray-400 hover:text-red-500 transition"
+            >
+              ✖
+            </button>
+
+            <h3 className="text-xl font-semibold mb-6 text-center">
+              💬 Chat History with {selectedLog.customer_name}
+            </h3>
+
+            <div className="space-y-4">
+              {selectedLog.messages?.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${
+                    msg.sender === "agent" ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  <div
+                    className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm
+                      ${
+                        msg.sender === "agent"
+                          ? "bg-gradient-to-br from-cyan-600 to-blue-600 rounded-br-sm"
+                          : "bg-gradient-to-br from-gray-700 to-gray-600 rounded-bl-sm"
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2 reminding mb-1 text-xs opacity-90">
+                      <span>
+                        {msg.sender === "agent" ? "👨‍💼 Agent" : "🙋 Customer"}
+                      </span>
+                    </div>
+
+                    <p className="whitespace-pre-wrap break-words">
+                      {msg.text}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
